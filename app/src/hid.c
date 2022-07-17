@@ -175,15 +175,15 @@ int zmk_hid_implicit_modifiers_release() {
 }
 
 int zmk_hid_masked_modifiers_set(zmk_mod_flags_t new_masked_modifiers) {
-    zmk_mod_flags_t current = GET_MODIFIERS;
     masked_modifiers = new_masked_modifiers;
+    zmk_mod_flags_t current = GET_MODIFIERS;
     SET_MODIFIERS(explicit_modifiers);
     return current == GET_MODIFIERS ? 0 : 1;
 }
 
 int zmk_hid_masked_modifiers_clear() {
-    zmk_mod_flags_t current = GET_MODIFIERS;
     masked_modifiers = 0;
+    zmk_mod_flags_t current = GET_MODIFIERS;
     SET_MODIFIERS(explicit_modifiers);
     return current == GET_MODIFIERS ? 0 : 1;
 }
