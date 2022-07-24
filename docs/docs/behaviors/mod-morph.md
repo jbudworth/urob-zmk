@@ -68,7 +68,7 @@ mods = <(MOD_LGUI|MOD_LSFT|MOD_RGUI|MOD_RSFT)>;
 
 ### Advanced configuration
 
-`masked_mods` 
+`masked_mods`
 
 When a modifier specified in `mods` is being held, it won't be sent along with the morphed keycode if it is also part of `masked_mods`. By default, `masked_mods` equals `mods`.
 
