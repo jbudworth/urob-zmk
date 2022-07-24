@@ -1,0 +1,58 @@
+pressed: usage_page 0x07 keycode 0x04 implicit_mods 0x00 explicit_mods 0x00
+mods: Modifiers set to 0x00
+mods: Modifiers set to 0x00
+released: usage_page 0x07 keycode 0x04 implicit_mods 0x00 explicit_mods 0x00
+mods: Modifiers set to 0x00
+pressed: usage_page 0x07 keycode 0xE1 implicit_mods 0x00 explicit_mods 0x00
+reg: Modifier 1 count 1
+reg: Modifiers set to 0x02
+mods: Modifiers set to 0x02
+mods: Modifiers set to 0x00
+pressed: usage_page 0x07 keycode 0x05 implicit_mods 0x02 explicit_mods 0x00
+mods: Modifiers set to 0x02
+mods: Modifiers set to 0x02
+released: usage_page 0x07 keycode 0x05 implicit_mods 0x02 explicit_mods 0x00
+mods: Modifiers set to 0x02
+released: usage_page 0x07 keycode 0xE1 implicit_mods 0x00 explicit_mods 0x00
+unreg: Modifier 1 count: 0
+unreg: Modifier 1 released
+unreg: Modifiers set to 0x00
+mods: Modifiers set to 0x00
+pressed: usage_page 0x07 keycode 0xE2 implicit_mods 0x00 explicit_mods 0x00
+reg: Modifier 2 count 1
+reg: Modifiers set to 0x04
+mods: Modifiers set to 0x04
+pressed: usage_page 0x07 keycode 0x04 implicit_mods 0x00 explicit_mods 0x00
+mods: Modifiers set to 0x04
+mods: Modifiers set to 0x04
+released: usage_page 0x07 keycode 0x04 implicit_mods 0x00 explicit_mods 0x00
+mods: Modifiers set to 0x04
+released: usage_page 0x07 keycode 0xE2 implicit_mods 0x00 explicit_mods 0x00
+unreg: Modifier 2 count: 0
+unreg: Modifier 2 released
+unreg: Modifiers set to 0x00
+mods: Modifiers set to 0x00
+pressed: usage_page 0x07 keycode 0xE2 implicit_mods 0x00 explicit_mods 0x00
+reg: Modifier 2 count 1
+reg: Modifiers set to 0x04
+mods: Modifiers set to 0x04
+pressed: usage_page 0x07 keycode 0xE1 implicit_mods 0x00 explicit_mods 0x00
+reg: Modifier 1 count 1
+reg: Modifiers set to 0x06
+mods: Modifiers set to 0x06
+mods: Modifiers set to 0x04
+pressed: usage_page 0x07 keycode 0x05 implicit_mods 0x02 explicit_mods 0x00
+mods: Modifiers set to 0x06
+mods: Modifiers set to 0x06
+released: usage_page 0x07 keycode 0x05 implicit_mods 0x02 explicit_mods 0x00
+mods: Modifiers set to 0x06
+released: usage_page 0x07 keycode 0xE1 implicit_mods 0x00 explicit_mods 0x00
+unreg: Modifier 1 count: 0
+unreg: Modifier 1 released
+unreg: Modifiers set to 0x04
+mods: Modifiers set to 0x04
+released: usage_page 0x07 keycode 0xE2 implicit_mods 0x00 explicit_mods 0x00
+unreg: Modifier 2 count: 0
+unreg: Modifier 2 released
+unreg: Modifiers set to 0x00
+mods: Modifiers set to 0x00
