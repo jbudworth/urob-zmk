@@ -2,16 +2,20 @@
 #include <behaviors.dtsi>
 #include <dt-bindings/zmk/kscan_mock.h>
 
+/*
+This test fails when the hold-tap resolves as tap, because &mod_morph is then released
+when the hold-tap decision is made but before the keypress is registered.
+*/
 
 &kscan {
 	events = <
-        /* B */
+        /* Shift + tap &mod_morph --> expect B (but get Shift + B) */
 		ZMK_MOCK_PRESS(0,0,10)
 		ZMK_MOCK_PRESS(0,1,10)
 		ZMK_MOCK_RELEASE(0,1,10)
 		ZMK_MOCK_RELEASE(0,0,10)
 
-        /* D */
+        /* Shift + hold &mod_morph --> expect and get D (no shift) */
 		ZMK_MOCK_PRESS(0,0,10)
 		ZMK_MOCK_PRESS(0,1,200)
 		ZMK_MOCK_PRESS(1,0,10)
@@ -29,6 +33,7 @@
             #binding-cells = <0>;
             bindings = <&kp A>, <&lt 1 B>;
             mods = <(MOD_LSFT|MOD_RSFT)>;
+            masked_mods = <(MOD_LSFT|MOD_RSFT)>;  // same as default, added in case default gets changed
         };
 
     };
