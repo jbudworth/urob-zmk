@@ -1,0 +1,7 @@
+This test fails when the hold-tap resolves as tap. As soon as the hold-tap is scheduled
+to resolve as tap, the mod-morph is registered as released. This triggers the
+`.binding_released` function of the `mod-morph` behavior, clearing the `masked_mods`
+before the actual tap-binding of the `hold-tap` gets registered.
+
+If the hold-tap resolves as hold, the mod-morph is not registered as released, and
+`masked_mods` are cleared correctly.
