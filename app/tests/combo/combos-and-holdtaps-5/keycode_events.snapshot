@@ -1,0 +1,4 @@
+mock event: Row: 1, col: 1, position: 3, pressed: true
+pressed: usage_page 0x07 keycode 0xE1 implicit_mods 0x00 explicit_mods 0x00
+mock event: Row: 1, col: 1, position: 3, pressed: false
+released: usage_page 0x07 keycode 0xE1 implicit_mods 0x00 explicit_mods 0x00
