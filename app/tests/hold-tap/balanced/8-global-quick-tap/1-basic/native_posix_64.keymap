@@ -6,9 +6,9 @@
 &kscan {
 	events = <
 		/* tap */
-		ZMK_MOCK_PRESS(0,0,10) 
-		ZMK_MOCK_RELEASE(0,0,10) 
-		/* normal quick tap */
+		ZMK_MOCK_PRESS(0,0,10)
+		ZMK_MOCK_RELEASE(0,0,250)
+		/* quick tap */
 		ZMK_MOCK_PRESS(0,0,400)
 		ZMK_MOCK_RELEASE(0,0,400)
 		/* hold */
@@ -16,7 +16,7 @@
 		ZMK_MOCK_PRESS(1,0,10)
 		ZMK_MOCK_RELEASE(1,0,10)
 		ZMK_MOCK_RELEASE(0,0,400)
-		/* global quick tap */
+		/* min prior term */
 		ZMK_MOCK_PRESS(1,0,10)
 		ZMK_MOCK_PRESS(0,0,400)
 		ZMK_MOCK_RELEASE(1,0,10)
