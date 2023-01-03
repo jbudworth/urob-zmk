@@ -29,6 +29,20 @@ config ZMK_BLE_SPLIT_CENTRAL_SPLIT_RUN_QUEUE_SIZE
 	int "Max number of behavior run events to queue to send to the peripheral(s)"
 	default 5
 
+config ZMK_BLE_SPLIT_CENTRAL_SPLIT_LED_STACK_SIZE
+	int "BLE split central LED write thread stack size"
+	default 512
+config ZMK_BLE_SPLIT_CENTRAL_SPLIT_LED_QUEUE_SIZE
+	int "Max number of led update events to queue to send to the peripheral(s)"
+	default 5
+
+config ZMK_BLE_SPLIT_CENTRAL_SPLIT_BL_STACK_SIZE
+	int "BLE split central LED write thread stack size"
+	default 512
+config ZMK_BLE_SPLIT_CENTRAL_SPLIT_BL_QUEUE_SIZE
+	int "Max number of led update events to queue to send to the peripheral(s)"
+	default 5
+
 endif # ZMK_SPLIT_ROLE_CENTRAL
 
 if !ZMK_SPLIT_ROLE_CENTRAL
@@ -75,6 +89,9 @@ config BT_MAX_CONN
 
 config BT_MAX_PAIRED
 	default 6
+
+config BT_FILTER_ACCEPT_LIST
+	default y
 
 #ZMK_SPLIT_BLE && ZMK_SPLIT_ROLE_CENTRAL
 endif

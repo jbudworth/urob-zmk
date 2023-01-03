@@ -215,6 +215,11 @@ config ZMK_RGB_UNDERGLOW_BRT_MAX
 	range ZMK_RGB_UNDERGLOW_BRT_MIN 100
 	default 100
 
+config ZMK_RGB_UNDERGLOW_BRT_SCALE
+	int "RGB underglow brightness scale factor in percent"
+	range 0 100
+	default 1
+
 config ZMK_RGB_UNDERGLOW_HUE_STEP
 	int "RGB underglow hue step in degrees"
 	range 0 359
@@ -252,7 +257,7 @@ config ZMK_RGB_UNDERGLOW_SPD_START
 
 config ZMK_RGB_UNDERGLOW_EFF_START
 	int "RGB underglow start effect int value related to the effect enum list"
-	range 0 3
+	range 0 5
 	default 0
 
 config ZMK_RGB_UNDERGLOW_ON_START
@@ -283,7 +288,12 @@ config ZMK_BACKLIGHT_BRT_STEP
 config ZMK_BACKLIGHT_BRT_START
 	int "Default brightness in percent"
 	range 1 100
-	default 40
+	default 100
+
+config ZMK_BACKLIGHT_BRT_SCALE
+	int "Default brightness in percent"
+	range 0 100
+	default 25
 
 config ZMK_BACKLIGHT_ON_START
 	bool "Default backlight state"
@@ -296,6 +306,20 @@ config ZMK_BACKLIGHT_AUTO_OFF_USB
 	bool "Turn off backlight when USB is disconnected"
 
 #ZMK_BACKLIGHT
+endif
+
+menuconfig ZMK_LED_INDICATORS
+	bool "LED indicators"
+	select LED
+
+if ZMK_LED_INDICATORS
+
+config ZMK_LED_INDICATORS_BRT
+	int "Brightness in percent"
+	range 1 100
+	default 80
+
+#ZMK_LED_INDICATORS
 endif
 
 #Display/LED Options
@@ -462,7 +486,7 @@ if SETTINGS
 
 config ZMK_SETTINGS_SAVE_DEBOUNCE
 	int "Milliseconds to debounce settings saves"
-	default 60000
+	default 29500
 
 #SETTINGS
 endif

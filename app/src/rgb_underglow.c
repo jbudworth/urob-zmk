@@ -24,6 +24,18 @@
 #include <zmk/event_manager.h>
 #include <zmk/events/activity_state_changed.h>
 #include <zmk/events/usb_conn_state_changed.h>
+#include <zmk/events/led_indicator_changed.h>
+#include <zmk/events/split_peripheral_status_changed.h>
+#include <zmk/led_indicators.h>
+#include <zmk/battery.h>
+#include <zmk/keymap.h>
+#include <zmk/ble.h>
+
+#if ZMK_BLE_IS_CENTRAL
+#include <zmk/split/bluetooth/central.h>
+#else
+#include <zmk/split/bluetooth/peripheral.h>
+#endif
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
@@ -42,6 +54,9 @@ enum rgb_underglow_effect {
     UNDERGLOW_EFFECT_BREATHE,
     UNDERGLOW_EFFECT_SPECTRUM,
     UNDERGLOW_EFFECT_SWIRL,
+    UNDERGLOW_EFFECT_KINESIS,
+    UNDERGLOW_EFFECT_BATTERY,
+    UNDERGLOW_EFFECT_TEST,
     UNDERGLOW_EFFECT_NUMBER // Used to track number of underglow effects
 };
 
@@ -58,6 +73,16 @@ static const struct device *led_strip;
 static struct led_rgb pixels[STRIP_NUM_PIXELS];
 
 static struct rgb_underglow_state state;
+
+static struct zmk_periph_led led_data;
+
+static bool last_ble_state[2];
+
+static bool triggered;
+
+#if ZMK_BLE_IS_CENTRAL
+static struct zmk_periph_led old_led_data;
+#endif
 
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER)
 static const struct device *ext_power;
@@ -123,6 +148,12 @@ static struct led_rgb hsb_to_rgb(struct zmk_led_hsb hsb) {
     return rgb;
 }
 
+int zmk_rgb_underglow_set_periph(struct zmk_periph_led periph) {
+    led_data = periph;
+    LOG_DBG("Update led_data %d %d", led_data.layer, led_data.indicators);
+    return 0;
+}
+
 static void zmk_rgb_underglow_effect_solid() {
     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
         pixels[i] = hsb_to_rgb(hsb_scale_min_max(state.color));
@@ -168,6 +199,302 @@ static void zmk_rgb_underglow_effect_swirl() {
     state.animation_step = state.animation_step % HUE_MAX;
 }
 
+#if ZMK_BLE_IS_CENTRAL
+static struct k_work_delayable led_update_work;
+
+static void zmk_rgb_underglow_central_send() {
+    int err = zmk_split_bt_update_led(&led_data);
+    if (err) {
+        LOG_ERR("send failed (err %d)", err);
+    }
+}
+#endif
+
+static void zmk_rgb_underglow_effect_kinesis() {
+#if ZMK_BLE_IS_CENTRAL
+    // leds for central(left) side
+
+    old_led_data.layer = led_data.layer;
+    old_led_data.indicators = led_data.indicators;
+    led_data.indicators = zmk_leds_get_current_flags();
+    led_data.layer = zmk_keymap_highest_layer_active();
+
+    pixels[0].r = (led_data.indicators & ZMK_LED_CAPSLOCK_BIT) * CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+    pixels[0].g = (led_data.indicators & ZMK_LED_CAPSLOCK_BIT) * CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+    pixels[0].b = (led_data.indicators & ZMK_LED_CAPSLOCK_BIT) * CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+    // set second led as bluetooth state
+    switch (zmk_ble_active_profile_index()) {
+    case 0:
+        pixels[1].r = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        pixels[1].g = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        pixels[1].b = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        break;
+    case 1:
+        pixels[1].r = 0;
+        pixels[1].g = 0;
+        pixels[1].b = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        break;
+    case 2:
+        pixels[1].r = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        pixels[1].g = 0;
+        pixels[1].b = 0;
+        break;
+    case 3:
+        pixels[1].r = 0;
+        pixels[1].g = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        pixels[1].b = 0;
+        break;
+    }
+    // blink second led slowly if bluetooth not paired, quickly if not connected
+    if (zmk_ble_active_profile_is_open()) {
+        pixels[1].r = pixels[1].r * last_ble_state[0];
+        pixels[1].g = pixels[1].g * last_ble_state[0];
+        pixels[1].b = pixels[1].b * last_ble_state[0];
+        if (state.animation_step > 3) {
+            last_ble_state[0] = !last_ble_state[0];
+            state.animation_step = 0;
+        }
+        state.animation_step++;
+    } else if (!zmk_ble_active_profile_is_connected()) {
+        pixels[1].r = pixels[1].r * last_ble_state[1];
+        pixels[1].g = pixels[1].g * last_ble_state[1];
+        pixels[1].b = pixels[1].b * last_ble_state[1];
+        if (state.animation_step > 14) {
+            last_ble_state[1] = !last_ble_state[1];
+            state.animation_step = 0;
+        }
+        state.animation_step++;
+    }
+    // set third led as layer state
+    switch (led_data.layer) {
+    case 0:
+        pixels[2].r = 0;
+        pixels[2].g = 0;
+        pixels[2].b = 0;
+        break;
+    case 1:
+        pixels[2].r = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        pixels[2].g = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        pixels[2].b = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        break;
+    case 2:
+        pixels[2].r = 0;
+        pixels[2].g = 0;
+        pixels[2].b = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        break;
+    case 3:
+        pixels[2].r = 0;
+        pixels[2].g = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        pixels[2].b = 0;
+        break;
+    case 4:
+        pixels[2].r = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        pixels[2].g = 0;
+        pixels[2].b = 0;
+        break;
+    case 5:
+        pixels[2].r = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        pixels[2].g = 0;
+        pixels[2].b = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        break;
+    case 6:
+        pixels[2].r = 0;
+        pixels[2].g = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        pixels[2].b = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        break;
+    case 7:
+        pixels[2].r = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        pixels[2].g = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        pixels[2].b = 0;
+        break;
+    default:
+        pixels[2].r = 0;
+        pixels[2].g = 0;
+        pixels[2].b = 0;
+        break;
+    }
+    if (old_led_data.layer != led_data.layer || old_led_data.indicators != led_data.indicators) {
+        zmk_rgb_underglow_central_send();
+    }
+#else
+    // leds for peripheral(right) side
+    /* if (zmk_ble_active_profile_is_open()) {
+        pixels[0].r = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE * last_ble_state[0];
+        pixels[0].g = 0;
+        pixels[0].b = 0;
+        pixels[1].r = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE * last_ble_state[0];
+        pixels[1].g = 0;
+        pixels[1].b = 0;
+        pixels[2].r = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE * last_ble_state[0];
+        pixels[2].g = 0;
+        pixels[2].b = 0;
+        if (state.animation_step > 3) {
+            last_ble_state[0] = !last_ble_state[0];
+            state.animation_step = 0;
+        }
+        state.animation_step++;
+    } else */
+    if (!zmk_split_bt_peripheral_is_connected()) {
+        pixels[0].r = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE * last_ble_state[1];
+        pixels[0].g = 0;
+        pixels[0].b = 0;
+        pixels[1].r = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE * last_ble_state[1];
+        pixels[1].g = 0;
+        pixels[1].b = 0;
+        pixels[2].r = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE * last_ble_state[1];
+        pixels[2].g = 0;
+        pixels[2].b = 0;
+        if (state.animation_step > 14) {
+            last_ble_state[1] = !last_ble_state[1];
+            state.animation_step = 0;
+        }
+        state.animation_step++;
+    } else {
+        // set first led as LED_NUMLOCK
+        pixels[2].r =
+            (led_data.indicators & ZMK_LED_NUMLOCK_BIT) * CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        pixels[2].g =
+            (led_data.indicators & ZMK_LED_NUMLOCK_BIT) * CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        pixels[2].b =
+            (led_data.indicators & ZMK_LED_NUMLOCK_BIT) * CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        // set second led as scroll Lock
+        pixels[1].r =
+            (led_data.indicators & ZMK_LED_SCROLLLOCK_BIT) * CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        pixels[1].g =
+            (led_data.indicators & ZMK_LED_SCROLLLOCK_BIT) * CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        pixels[1].b =
+            (led_data.indicators & ZMK_LED_SCROLLLOCK_BIT) * CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+        // set third led as layer
+        switch (led_data.layer) {
+        case 0:
+            pixels[0].r = 0;
+            pixels[0].g = 0;
+            pixels[0].b = 0;
+            break;
+        case 1:
+            pixels[0].r = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+            pixels[0].g = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+            pixels[0].b = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+            break;
+        case 2:
+            pixels[0].r = 0;
+            pixels[0].g = 0;
+            pixels[0].b = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+            break;
+        case 3:
+            pixels[0].r = 0;
+            pixels[0].g = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+            pixels[0].b = 0;
+            break;
+        case 4:
+            pixels[0].r = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+            pixels[0].g = 0;
+            pixels[0].b = 0;
+            break;
+        case 5:
+            pixels[0].r = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+            pixels[0].g = 0;
+            pixels[0].b = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+            break;
+        case 6:
+            pixels[0].r = 0;
+            pixels[0].g = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+            pixels[0].b = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+            break;
+        case 7:
+            pixels[0].r = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+            pixels[0].g = CONFIG_ZMK_RGB_UNDERGLOW_BRT_SCALE;
+            pixels[0].b = 0;
+            break;
+        default:
+            pixels[0].r = 0;
+            pixels[0].g = 0;
+            pixels[0].b = 0;
+            break;
+        }
+    }
+#endif
+}
+
+static void zmk_rgb_underglow_effect_test() {
+    triggered = true;
+    struct led_rgb rgb;
+    rgb.r = 0;
+    rgb.g = 0;
+    rgb.b = 0;
+
+    for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+        struct zmk_led_hsb hsb = state.color;
+        hsb.h = state.animation_step;
+
+        pixels[i] = hsb_to_rgb(hsb_scale_min_max(hsb));
+    }
+    if (state.animation_step < (HUE_MAX * 3)) {
+        struct zmk_led_hsb hsb = state.color;
+        hsb.h = state.animation_step;
+        rgb.r = 0;
+
+        pixels[0] = rgb;
+        pixels[1] = rgb;
+        pixels[2] = hsb_to_rgb(hsb_scale_min_max(hsb));
+    }
+    if (state.animation_step < (HUE_MAX * 2)) {
+        struct zmk_led_hsb hsb = state.color;
+        hsb.h = state.animation_step - HUE_MAX;
+        rgb.r = 0;
+        rgb.g = 0;
+        rgb.b = 0;
+        pixels[0] = rgb;
+        pixels[1] = hsb_to_rgb(hsb_scale_min_max(hsb));
+        pixels[2] = rgb;
+    }
+    if (state.animation_step < HUE_MAX) {
+        struct zmk_led_hsb hsb = state.color;
+        hsb.h = state.animation_step;
+        rgb.r = 0;
+        rgb.g = 0;
+        rgb.b = 0;
+        pixels[0] = hsb_to_rgb(hsb_scale_min_max(hsb));
+        pixels[1] = rgb;
+        pixels[2] = rgb;
+    }
+
+    state.animation_step += 20;
+    if (state.animation_step > (HUE_MAX * 3)) {
+
+        rgb.r = 255;
+        rgb.g = 255;
+        rgb.b = 255;
+        for (int i = 0; i < STRIP_NUM_PIXELS; i++)
+            pixels[i] = rgb;
+    }
+}
+
+static void zmk_rgb_underglow_effect_battery() {
+    uint8_t soc = zmk_battery_state_of_charge();
+    struct led_rgb rgb;
+    if (soc > 80) {
+        rgb.r = 0;
+        rgb.g = 255;
+        rgb.b = 0;
+    } else if (soc > 50 && soc < 80) {
+        rgb.r = 255;
+        rgb.g = 255;
+        rgb.b = 0;
+    } else if (soc > 20 && soc < 51) {
+        rgb.r = 255;
+        rgb.g = 140;
+        rgb.b = 0;
+    } else {
+        rgb.r = 255;
+        rgb.g = 0;
+        rgb.b = 0;
+    }
+    for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+        pixels[i] = rgb;
+    }
+}
+
 static void zmk_rgb_underglow_tick(struct k_work *work) {
     switch (state.current_effect) {
     case UNDERGLOW_EFFECT_SOLID:
@@ -181,6 +508,15 @@ static void zmk_rgb_underglow_tick(struct k_work *work) {
         break;
     case UNDERGLOW_EFFECT_SWIRL:
         zmk_rgb_underglow_effect_swirl();
+        break;
+    case UNDERGLOW_EFFECT_KINESIS:
+        zmk_rgb_underglow_effect_kinesis();
+        break;
+    case UNDERGLOW_EFFECT_BATTERY:
+        zmk_rgb_underglow_effect_battery();
+        break;
+    case UNDERGLOW_EFFECT_TEST:
+        zmk_rgb_underglow_effect_test();
         break;
     }
 
@@ -229,6 +565,15 @@ static void zmk_rgb_underglow_save_state_work() {
 static struct k_work_delayable underglow_save_work;
 #endif
 
+int zmk_rgb_underglow_save_state() {
+#if IS_ENABLED(CONFIG_SETTINGS)
+    int ret = k_work_reschedule(&underglow_save_work, K_MSEC(CONFIG_ZMK_SETTINGS_SAVE_DEBOUNCE));
+    return MIN(ret, 0);
+#else
+    return 0;
+#endif
+}
+
 static int zmk_rgb_underglow_init(const struct device *_arg) {
     led_strip = device_get_binding(STRIP_LABEL);
     if (led_strip) {
@@ -265,30 +610,22 @@ static int zmk_rgb_underglow_init(const struct device *_arg) {
         LOG_ERR("Failed to register the ext_power settings handler (err %d)", err);
         return err;
     }
-
+    led_data.indicators = 0;
     k_work_init_delayable(&underglow_save_work, zmk_rgb_underglow_save_state_work);
 
     settings_load_subtree("rgb/underglow");
 #endif
 
-#if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_AUTO_OFF_USB)
-    state.on = zmk_usb_is_powered();
+#if ZMK_BLE_IS_CENTRAL
+    k_work_init_delayable(&led_update_work, zmk_rgb_underglow_central_send);
 #endif
 
-    if (state.on) {
-        k_timer_start(&underglow_tick, K_NO_WAIT, K_MSEC(50));
-    }
-
+    zmk_rgb_underglow_save_state();
+    k_work_submit(&underglow_work);
+    zmk_rgb_underglow_off();
+    zmk_rgb_underglow_on();
+    triggered = false;
     return 0;
-}
-
-int zmk_rgb_underglow_save_state() {
-#if IS_ENABLED(CONFIG_SETTINGS)
-    int ret = k_work_reschedule(&underglow_save_work, K_MSEC(CONFIG_ZMK_SETTINGS_SAVE_DEBOUNCE));
-    return MIN(ret, 0);
-#else
-    return 0;
-#endif
 }
 
 int zmk_rgb_underglow_get_state(bool *on_off) {
@@ -462,17 +799,15 @@ static int rgb_underglow_auto_state(bool *prev_state, bool new_state) {
     if (state.on == new_state) {
         return 0;
     }
-    if (new_state) {
-        state.on = *prev_state;
-        *prev_state = false;
+    state.on = new_state && *prev_state;
+    *prev_state = !new_state;
+    if (state.on)
         return zmk_rgb_underglow_on();
-    } else {
-        state.on = false;
-        *prev_state = true;
+    else
         return zmk_rgb_underglow_off();
-    }
 }
 
+#endif
 static int rgb_underglow_event_listener(const zmk_event_t *eh) {
 
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_AUTO_OFF_IDLE)
@@ -485,8 +820,29 @@ static int rgb_underglow_event_listener(const zmk_event_t *eh) {
 
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_AUTO_OFF_USB)
     if (as_zmk_usb_conn_state_changed(eh)) {
+        led_data.indicators = zmk_led_indicators_get_current_flags();
+        led_data.layer = zmk_keymap_highest_layer_active();
+        int err = zmk_split_bt_update_led(&led_data);
+        if (err) {
+            LOG_ERR("send failed (err %d)", err);
+        }
         static bool prev_state = false;
         return rgb_underglow_auto_state(&prev_state, zmk_usb_is_powered());
+    }
+#endif
+
+#if ZMK_BLE_IS_CENTRAL
+    if (as_zmk_split_peripheral_status_changed(eh)) {
+        LOG_DBG("event called");
+        const struct zmk_split_peripheral_status_changed *ev;
+        ev = as_zmk_split_peripheral_status_changed(eh);
+        if (ev->connected) {
+            k_work_reschedule(&led_update_work, K_MSEC(2500));
+            return 0;
+        } else {
+            k_work_cancel_delayable(&led_update_work);
+            return 0;
+        }
     }
 #endif
 
@@ -494,8 +850,7 @@ static int rgb_underglow_event_listener(const zmk_event_t *eh) {
 }
 
 ZMK_LISTENER(rgb_underglow, rgb_underglow_event_listener);
-#endif // IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_AUTO_OFF_IDLE) ||
-       // IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_AUTO_OFF_USB)
+// IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_AUTO_OFF_USB)
 
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_AUTO_OFF_IDLE)
 ZMK_SUBSCRIPTION(rgb_underglow, zmk_activity_state_changed);
@@ -503,6 +858,10 @@ ZMK_SUBSCRIPTION(rgb_underglow, zmk_activity_state_changed);
 
 #if IS_ENABLED(CONFIG_ZMK_RGB_UNDERGLOW_AUTO_OFF_USB)
 ZMK_SUBSCRIPTION(rgb_underglow, zmk_usb_conn_state_changed);
+#endif
+
+#if ZMK_BLE_IS_CENTRAL
+ZMK_SUBSCRIPTION(rgb_underglow, zmk_split_peripheral_status_changed);
 #endif
 
 SYS_INIT(zmk_rgb_underglow_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);

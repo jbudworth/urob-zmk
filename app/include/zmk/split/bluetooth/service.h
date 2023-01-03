@@ -20,5 +20,15 @@ struct zmk_split_run_behavior_payload {
     char behavior_dev[ZMK_SPLIT_RUN_BEHAVIOR_DEV_LEN];
 } __packed;
 
+struct zmk_split_update_led_data {
+    uint8_t layer;
+    uint8_t indicators;
+} __packed;
+
+struct zmk_split_update_bl_data {
+    uint8_t brightness;
+    bool on;
+} __packed;
+
 int zmk_split_bt_position_pressed(uint8_t position);
 int zmk_split_bt_position_released(uint8_t position);
