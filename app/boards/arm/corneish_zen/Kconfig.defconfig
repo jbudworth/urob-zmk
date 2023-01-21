@@ -44,7 +44,6 @@ endif # USB
 config ZMK_DISPLAY
 	select LVGL_USE_CONT
 	select LVGL_FONT_MONTSERRAT_26
-	select LVGL_FONT_MONTSERRAT_20
 	select LVGL_FONT_MONTSERRAT_16
 	select LVGL_USE_LABEL
 	select LVGL_USE_IMG
@@ -77,5 +76,24 @@ menuconfig CUSTOM_WIDGET_LAYER_STATUS
 
 menuconfig CUSTOM_WIDGET_PERIPHERAL_STATUS
 	bool "custom peripheral status widget"
+
+config CUSTOM_WIDGET_LAYER_STATUS_HIDE_HEADING
+	bool "Hide heading strip for layer widget"
+	depends on CUSTOM_WIDGET_LAYER_STATUS
+
+choice CUSTOM_WIDGET_LOGO_IMAGE
+	prompt "custom logo widget image"
+	default CUSTOM_WIDGET_LOGO_IMAGE_ZEN
+	help
+	  Image used in custom logo widget
+	config CUSTOM_WIDGET_LOGO_IMAGE_ZEN
+		bool "Corne-ish Zen"
+	config CUSTOM_WIDGET_LOGO_IMAGE_LPKB
+		bool "LPKB"
+	config CUSTOM_WIDGET_LOGO_IMAGE_ZMK
+		bool "ZMK"
+	config CUSTOM_WIDGET_LOGO_IMAGE_MIRYOKU
+		bool "Miryoku"
+endchoice
 
 endif # BOARD_CORNEISH_ZEN_V2_LEFT || BOARD_CORNEISH_ZEN_V2_RIGHT
