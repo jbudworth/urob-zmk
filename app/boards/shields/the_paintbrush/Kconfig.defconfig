@@ -1,0 +1,56 @@
+
+if SHIELD_THE_PAINTBRUSH_LEFT
+    config ZMK_KEYBOARD_NAME
+        default "Paintbrush (L)"
+endif
+
+if SHIELD_THE_PAINTBRUSH_RIGHT
+    config ZMK_KEYBOARD_NAME
+        default "Paintbrush (R)"
+endif
+
+
+config I2C
+    default y
+
+config SSD1306
+    default y
+
+config SSD1306_REVERSE_MODE
+    default y
+
+if LVGL
+
+config LVGL_HOR_RES_MAX
+    int
+    default 128
+
+config LVGL_VER_RES_MAX
+    int
+    default 32
+
+config LVGL_VDB_SIZE
+    int
+    default 64
+
+config LVGL_DPI
+    int
+    default 148
+
+config LVGL_BITS_PER_PIXEL
+    int
+    default 1
+
+choice LVGL_COLOR_DEPTH
+    bool "Color Depth"
+    default LVGL_COLOR_DEPTH_1
+
+    config LVGL_COLOR_DEPTH_1
+        bool "LVGL_COLOR_DEPTH_1"
+    config LVGL_COLOR_DEPTH_2
+        bool "LVGL_COLOR_DEPTH_2"
+endchoice
+
+endif # LVGL
+
+
